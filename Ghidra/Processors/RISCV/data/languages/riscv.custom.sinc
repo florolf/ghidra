@@ -1,155 +1,437 @@
 # custom
 
-define pcodeop custom0;
-define pcodeop custom0.rs1;
-define pcodeop custom0.rs1.rs2;
-define pcodeop custom0.rd;
-define pcodeop custom0.rd.rs1;
-define pcodeop custom0.rd.rs1.rs2;
+@include "riscv.dummy.sinc"
 
-define pcodeop custom1;
-define pcodeop custom1.rs1;
-define pcodeop custom1.rs1.rs2;
-define pcodeop custom1.rd;
-define pcodeop custom1.rd.rs1;
-define pcodeop custom1.rd.rs1.rs2;
-
-define pcodeop custom2;
-define pcodeop custom2.rs1;
-define pcodeop custom2.rs1.rs2;
-define pcodeop custom2.rd;
-define pcodeop custom2.rd.rs1;
-define pcodeop custom2.rd.rs1.rs2;
-
-define pcodeop custom3;
-define pcodeop custom3.rs1;
-define pcodeop custom3.rs1.rs2;
-define pcodeop custom3.rd;
-define pcodeop custom3.rd.rs1;
-define pcodeop custom3.rd.rs1.rs2;
-
-:custom0 is op0001=0x3 & op0204=0x2 & op0506=0x0 & op1214=0x0
+# th.addsl _rd_, _rs1_, _rs2_, _imm2_
+:th.addsl rd,rs1,rs2,op2526 is op0006=0xb & funct3=0x1 & funct5=0x0 & rd & rs1 & rs2 & op2526
 {
-	custom0();
+	# reg[rd] := reg[rs1] + (reg[rs2] << imm2)
+	rd = rs1 + (rs2 << op2526);
 }
 
-:custom0.rs1 rs1 is op0001=0x3 & op0204=0x2 & op0506=0x0 & op1214=0x2 & rs1
+# th.ext _rd_, _rs1_, _imm1_, _imm2_
+:th.ext rd,rs1,op2631,op2025 is op0006=0xb & funct3=0x2 & rd & rs1 & op2631 & op2025
 {
-	custom0.rs1(rs1);
+	# reg[rd] := sign_extend(reg[rs1][imm1:imm2])
+	local tmp = rs1 >> op2025;
+	rd = sext(tmp & ((1 << (op2631 - op2025 + 1)) - 1));
 }
 
-:custom0.rs1.rs2 rs1,rs2 is op0001=0x3 & op0204=0x2 & op0506=0x0 & op1214=0x3 & rs1 & rs2
+# th.extu _rd_, _rs1_, _imm1_, _imm2_
+:th.extu rd,rs1,op2631,op2025 is op0006=0xb & funct3=0x3 & rd & rs1 & op2631 & op2025
 {
-	custom0.rs1.rs2(rs1, rs2);
+	# reg[rd] := zero_extend(reg[rs1][imm1:imm2])
+	#local tmp = rs1 << ($(XLEN) - op2631 - 1);
+	local tmp = rs1 >> op2025;
+	rd = zext(tmp & ((1 << (op2631 - op2025 + 1)) - 1));
 }
 
-:custom0.rd rd is op0001=0x3 & op0204=0x2 & op0506=0x0 & op1214=0x4 & rd
+@if ADDRSIZE == "32"
+# th.rev _rd_, _rs1_
+:th.rev rd,rs1 is op0006=0xb & funct3=0x1 & op2024=0x0 & op2526=0x1 & funct5=0x10 & rd & rs1
 {
-	rd = custom0.rd();
+	# for i=0..(xlen/8-1):
+	# j := xlen/8 - 1 - i
+	# tmp[i] := reg[rs1][j]
+	# reg[rd] := tmp
+	local tmp1 = (rs1      ) & 0xff;
+	local tmp2 = (rs1 >>  8) & 0xff;
+	local tmp3 = (rs1 >> 16) & 0xff;
+	local tmp4 = (rs1 >> 24) & 0xff;
+
+	rd = (tmp1 << 24) | (tmp2 << 16) | (tmp3 << 8) | tmp4;
+}
+@endif
+
+# th.revw _rd_, _rs1_
+:th.revw rd,rs1 is op0006=0xb & funct3=0x1 & op2024=0x0 & op2526=0x0 & funct5=0x12 & rd & rs1
+{
+	# for i=0..3:
+	# j := 3 - i
+	# tmp[i] := reg[rs1][j]
+	# reg[rd] := tmp
+	local tmp1 = (rs1 >>  0) & 0xff;
+	local tmp2 = (rs1 >>  8) & 0xff;
+	local tmp3 = (rs1 >> 16) & 0xff;
+	local tmp4 = (rs1 >> 24) & 0xff;
+
+	zassignW(rd, (tmp1 << 24) | (tmp2 << 16) | (tmp3 << 8) | tmp4);
 }
 
-:custom0.rd.rs1 rd,rs1 is op0001=0x3 & op0204=0x2 & op0506=0x0 & op1214=0x6 & rd & rs1
+:th.dcache.call is op0006=0xb & op0711=0x0 & funct3=0x0 & subf5=0x0 & op2024=0x1 & op2531=0x0
 {
-	rd = custom0.rd.rs1(rs1);
+	# if (priv_level == U)
+	# {
+	# <raise illegal instruction exception>
+	# }
+	# 
+	# <write back all dirty data cache lines of the local hart>
 }
 
-:custom0.rd.rs1.rs2 rd,rs1,rs2 is op0001=0x3 & op0204=0x2 & op0506=0x0 & op1214=0x7 & rd & rs1 & rs2
+:th.dcache.ciall is op0006=0xb & op0711=0x0 & funct3=0x0 & subf5=0x0 & op2024=0x3 & op2531=0x0
 {
-	rd = custom0.rd.rs1.rs2(rs1, rs2);
+	# if (priv_level == U)
+	# {
+	# <raise illegal instruction exception>
+	# }
+	# 
+	# <write back all dirty data cache lines of the local hart>
+	# <invalidate all data cache lines of the local hart>
 }
 
-
-:custom1 is op0001=0x3 & op0204=0x2 & op0506=0x1 & op1214=0x0
+# th.dcache.cipa _rs1_
+:th.dcache.cipa rs1 is op0006=0xb & op0711=0x0 & funct3=0x0 & op2024=0xb & op2531=0x1 & rs1
 {
-	custom1();
+	# if (priv_level == U)
+	# {
+	# <raise illegal instruction exception>
+	# }
+	# 
+	# <write back all dirty data cache lines matching the PA>
+	# <invalidate all data cache lines matching the PA>
 }
 
-:custom1.rs1 rs1 is op0001=0x3 & op0204=0x2 & op0506=0x1 & op1214=0x2 & rs1
+# th.dcache.cisw _rs1_
+:th.dcache.cisw rs1 is op0006=0xb & op0711=0x0 & funct3=0x0 & op2024=0x3 & op2531=0x1 & rs1
 {
-	custom1.rs1(rs1);
+	# if (priv_level == U)
+	# {
+	# <raise illegal instruction exception>
+	# }
+	# 
+	# <write back data cache line matching the set/way if dirty>
+	# <invalidate data cache line matching the set/way>
 }
 
-:custom1.rs1.rs2 rs1,rs2 is op0001=0x3 & op0204=0x2 & op0506=0x1 & op1214=0x3 & rs1 & rs2
+# th.dcache.civa _rs1_
+:th.dcache.civa rs1 is op0006=0xb & op0711=0x0 & funct3=0x0 & op2024=0x7 & op2531=0x1 & rs1
 {
-	custom1.rs1.rs2(rs1, rs2);
+	# <write back all dirty data cache lines matching the VA>
+	# <invalidate all data cache lines matching the VA>
 }
 
-:custom1.rd rd is op0001=0x3 & op0204=0x2 & op0506=0x1 & op1214=0x4 & rd
+# th.dcache.cpa _rs1_
+:th.dcache.cpa rs1 is op0006=0xb & op0711=0x0 & funct3=0x0 & op2024=0x9 & op2531=0x1 & rs1
 {
-	rd = custom1.rd();
+	# if (priv_level == U)
+	# {
+	# <raise illegal instruction exception>
+	# }
+	# 
+	# <write back all dirty data cache lines matching the PA>
 }
 
-:custom1.rd.rs1 rd,rs1 is op0001=0x3 & op0204=0x2 & op0506=0x1 & op1214=0x6 & rd & rs1
+# th.dcache.cpal1 _rs1_
+:th.dcache.cpal1 rs1 is op0006=0xb & op0711=0x0 & funct3=0x0 & op2024=0x8 & op2531=0x1 & rs1
 {
-	rd = custom1.rd.rs1(rs1);
+	# if (priv_level == U)
+	# {
+	# <raise illegal instruction exception>
+	# }
+	# 
+	# <write back all dirty L1 data cache lines matching the PA>
 }
 
-:custom1.rd.rs1.rs2 rd,rs1,rs2 is op0001=0x3 & op0204=0x2 & op0506=0x1 & op1214=0x7 & rd & rs1 & rs2
+# th.dcache.csw _rs1_
+:th.dcache.csw rs1 is op0006=0xb & op0711=0x0 & funct3=0x0 & op2024=0x1 & op2531=0x1 & rs1
 {
-	rd = custom1.rd.rs1.rs2(rs1, rs2);
+	# if (priv_level == U)
+	# {
+	# <raise illegal instruction exception>
+	# }
+	# 
+	# <write back data cache line matching the set/way if dirty>
 }
 
-
-#TODO handle RV128 for custom-2/custom-3
-
-:custom2 is op0001=0x3 & op0204=0x6 & op0506=0x2 & op1214=0x0
+# th.dcache.cva _rs1_
+:th.dcache.cva rs1 is op0006=0xb & op0711=0x0 & funct3=0x0 & op2024=0x5 & op2531=0x1 & rs1
 {
-	custom2();
+	# if (priv_level == U)
+	# {
+	# <raise illegal instruction exception>
+	# }
+	# 
+	# <write back all dirty data cache lines matching the VA>
 }
 
-:custom2.rs1 rs1 is op0001=0x3 & op0204=0x6 & op0506=0x2 & op1214=0x2 & rs1
+# th.dcache.cval1 _rs1_
+:th.dcache.cval1 rs1 is op0006=0xb & op0711=0x0 & funct3=0x0 & op2024=0x4 & op2531=0x1 & rs1
 {
-	custom2.rs1(rs1);
+	# <write back all dirty L1 data cache lines matching the VA>
 }
 
-:custom2.rs1.rs2 rs1,rs2 is op0001=0x3 & op0204=0x6 & op0506=0x2 & op1214=0x3 & rs1 & rs2
+:th.dcache.iall is op0006=0xb & op0711=0x0 & funct3=0x0 & subf5=0x0 & op2024=0x2 & op2531=0x0
 {
-	custom2.rs1.rs2(rs1, rs2);
+	# if (priv_level == U)
+	# {
+	# <raise illegal instruction exception>
+	# }
+	# 
+	# <invalidate all data cache lines of the local hart>
 }
 
-:custom2.rd rd is op0001=0x3 & op0204=0x6 & op0506=0x2 & op1214=0x4 & rd
+# th.dcache.ipa _rs1_
+:th.dcache.ipa rs1 is op0006=0xb & op0711=0x0 & funct3=0x0 & op2024=0xa & op2531=0x1 & rs1
 {
-	rd = custom2.rd();
+	# if (priv_level == U)
+	# <raise illegal instruction exception>
+	# }
+	# 
+	# <invalidate all data cache lines matching the PA>
 }
 
-:custom2.rd.rs1 rd,rs1 is op0001=0x3 & op0204=0x6 & op0506=0x2 & op1214=0x6 & rd & rs1
+# th.dcache.isw _rs1_
+:th.dcache.isw rs1 is op0006=0xb & op0711=0x0 & funct3=0x0 & op2024=0x2 & op2531=0x1 & rs1
 {
-	rd = custom2.rd.rs1(rs1);
+	# if (priv_level == U)
+	# {
+	# <raise illegal instruction exception>
+	# }
+	# 
+	# <invalidate data cache line matching the set/way>
 }
 
-:custom2.rd.rs1.rs2 rd,rs1,rs2 is op0001=0x3 & op0204=0x6 & op0506=0x2 & op1214=0x7 & rd & rs1 & rs2
+# th.dcache.iva _rs1_
+:th.dcache.iva rs1 is op0006=0xb & op0711=0x0 & funct3=0x0 & op2024=0x6 & op2531=0x1 & rs1
 {
-	rd = custom2.rd.rs1.rs2(rs1, rs2);
+	# if (priv_level == U)
+	# {
+	# <raise illegal instruction exception>
+	# }
+	# 
+	# <invalidate all data cache lines matching the VA>
 }
 
-
-:custom3 is op0001=0x3 & op0204=0x6 & op0506=0x3 & op1214=0x0
+:th.icache.iall is op0006=0xb & op0711=0x0 & funct3=0x0 & subf5=0x0 & op2024=0x10 & op2531=0x0
 {
-	custom3();
+	# if (priv_level == U)
+	# {
+	# <raise illegal instruction exception>
+	# }
+	# 
+	# <invalidate all instruction cache lines of the local hart>
 }
 
-:custom3.rs1 rs1 is op0001=0x3 & op0204=0x6 & op0506=0x3 & op1214=0x2 & rs1
+:th.icache.ialls is op0006=0xb & op0711=0x0 & funct3=0x0 & subf5=0x0 & op2024=0x11 & op2531=0x0
 {
-	custom3.rs1(rs1);
+	# if (priv_level == U)
+	# {
+	# <raise illegal instruction exception>
+	# }
+	# 
+	# <invalidate all instruction cache lines on all harts>
 }
 
-:custom3.rs1.rs2 rs1,rs2 is op0001=0x3 & op0204=0x6 & op0506=0x3 & op1214=0x3 & rs1 & rs2
+# th.icache.ipa _rs1_
+:th.icache.ipa rs1 is op0006=0xb & op0711=0x0 & funct3=0x0 & op2024=0x18 & op2531=0x1 & rs1
 {
-	custom3.rs1.rs2(rs1, rs2);
+	# if (priv_level == U)
+	# {
+	# <raise illegal instruction exception>
+	# }
+	# 
+	# <invalidate all instruction cache lines matching the PA>
 }
 
-:custom3.rd rd is op0001=0x3 & op0204=0x6 & op0506=0x3 & op1214=0x4 & rd
+# th.icache.iva _rs1_
+:th.icache.iva rs1 is op0006=0xb & op0711=0x0 & funct3=0x0 & op2024=0x10 & op2531=0x1 & rs1
 {
-	rd = custom3.rd();
+	# <invalidate all instruction cache lines matching the VA>
 }
 
-:custom3.rd.rs1 rd,rs1 is op0001=0x3 & op0204=0x6 & op0506=0x3 & op1214=0x6 & rd & rs1
+# th.mveqz _rd_, _rs1_, _rs2_
+:th.mveqz rd,rs1,rs2 is op0006=0xb & funct3=0x1 & op2526=0x0 & funct5=0x8 & rd & rs1 & rs2
 {
-	rd = custom3.rd.rs1(rs1);
+	# if (reg[rs2] == 0x0)
+	# reg[rd] := reg[rs1]
+
+	if (rs2 != 0) goto inst_next;
+	rd = rs1;
 }
 
-:custom3.rd.rs1.rs2 rd,rs1,rs2 is op0001=0x3 & op0204=0x6 & op0506=0x3 & op1214=0x7 & rd & rs1 & rs2
+# th.mvnez _rd_, _rs1_, _rs2_
+:th.mvnez rd,rs1,rs2 is op0006=0xb & funct3=0x1 & op2526=0x1 & funct5=0x8 & rd & rs1 & rs2
 {
-	rd = custom3.rd.rs1.rs2(rs1, rs2);
+	# if (reg[rs2] != 0x0)
+	# reg[rd] := reg[rs1]
+
+	if (rs2 == 0) goto inst_next;
+	rd = rs1;
 }
 
+# th.flrw _rd_, _rs1_, _rs2_, _imm2_
+:th.flrw rd,rs1,rs2 is op0006=0xb & funct3=0x6 & funct5=0x8 & rd & rs1 & rs2
+{
+	# TODO
+	# addr := rs1 + (rs2 << imm2)
+	# rd := one_extend(fmem[addr+3:addr])
+}
+
+# th.fsrw _rd_, _rs1_, _rs2_, _imm2_
+:th.fsrw rd,rs1,rs2 is op0006=0xb & funct3=0x7 & funct5=0x8 & rd & rs1 & rs2
+{
+	# TODO
+	# addr := rs1 + (rs2 << imm2)
+	# fmem[addr+3:addr] := rd
+}
+
+# th.mula _rd_, _rs1_, _rs2_
+:th.mula rd,rs1,rs2 is op0006=0xb & funct3=0x1 & op2526=0x0 & funct5=0x4 & rd & rs1 & rs2
+{
+	# M := reg[rs1] * reg[rs2]
+	# reg[rd] := reg[rd] + M
+
+	rd = rs1 * rs2 + rd;
+}
+
+# th.mulah _rd_, _rs1_, _rs2_
+:th.mulah rd,rs1,rs2 is op0006=0xb & funct3=0x1 & op2526=0x0 & funct5=0x5 & rd & rs1 & rs2
+{
+	# TODO
+	# M := sext.w(reg[rs1][15:0]) * sext.w(reg[rs2][15:0])
+	# reg[rd] := sext.w(reg[rd] + M)
+}
+
+# th.mulaw _rd_, _rs1_, _rs2_
+:th.mulaw rd,rs1,rs2 is op0006=0xb & funct3=0x1 & op2526=0x2 & funct5=0x4 & rd & rs1 & rs2
+{
+	# TODO
+	# M := sext.w(reg[rs1]) * sext.w(reg[rs2])
+	# reg[rd] := sext.w(reg[rd] + M)
+}
+
+# th.lbuia _rd_, (_rs1_), _imm5_, _imm2_
+:th.lbuia rd,(rs1),op2024,op2526 is op0006=0xb & funct3=0x4 & funct5=0x13 & rd & rs1 & op2024 & op2526
+{
+	# rs := zero_extend(mem[rs1])
+	# rs1 := rs1 + (sign_extend(imm5) << imm2)
+
+	rd = zext(*[ram]:1 rs1);
+
+	local imm5:$(XLEN) = op2024;
+	local imm2:$(XLEN) = op2526;
+
+	rs1 = rs1 + (sext(imm5[0,4]) << imm2);
+}
+
+# th.lrbu _rd_, _rs1_, _rs2_, _imm2_
+:th.lrbu rd,rs1,rs2,op2526 is op0006=0xb & funct3=0x4 & funct5=0x10 & rd & rs1 & rs2 & op2526
+{
+	# addr := rs1 + (rs2 << imm2)
+	# rd := zero_extend(mem[addr])
+
+	local ea:$(XLEN) = rs1 + (rs2 << op2526);
+	rd = zext(*[ram]:1 ea);
+}
+
+# th.lrhu _rd_, _rs1_, _rs2_, _imm2_
+:th.lrhu rd,rs1,rs2,op2526 is op0006=0xb & funct3=0x4 & funct5=0x14 & rd & rs1 & rs2 & op2526
+{
+	# addr := rs1 + (rs2 << imm2)
+	# rd := zero_extend(mem[addr+1:addr])
+
+	local ea:$(XLEN) = rs1 + (rs2 << op2526);
+	rd = zext(*[ram]:2 ea);
+}
+
+# th.lrw _rd_, _rs1_, _rs2_, _imm2_
+:th.lrw rd,rs1,rs2,op2526 is op0006=0xb & funct3=0x4 & funct5=0x8 & rd & rs1 & rs2 & op2526
+{
+	# addr := rs1 + (rs2 << imm2)
+	# rd := sign_extend(mem[addr+3:addr])
+
+	local ea:$(XLEN) = rs1 + (rs2 << op2526);
+	assignW(rd, *[ram]:4 ea);
+}
+
+# th.lrwu _rd_, _rs1_, _rs2_, _imm2_
+:th.lrwu rd,rs1,rs2,op2526 is op0006=0xb & funct3=0x4 & funct5=0x18 & rd & rs1 & rs2 & op2526
+{
+	# addr := rs1 + (rs2 << imm2)
+	# rd := zero_extend(mem[addr+3:addr])
+
+	local ea:$(XLEN) = rs1 + (rs2 << op2526);
+	rd = zext(*[ram]:4 ea);
+}
+
+# th.lwia _rd_, (_rs1_), _imm5_, _imm2_
+:th.lwia rd,(rs1),op2024,op2526 is op0006=0xb & funct3=0x4 & funct5=0xb & rd & rs1 & op2024 & op2526
+{
+	# rd := sign_extend(mem[rs1+3:rs1])
+	# rs1 := rs1 + (sign_extend(imm5) << imm2)
+
+	assignW(rd, *[ram]:4 rs1);
+
+	local imm5:$(XLEN) = op2024;
+	local imm2:$(XLEN) = op2526;
+
+	rs1 = rs1 + (sext(imm5[0,4]) << imm2);
+}
+
+# th.srb _rd_, _rs1_, _rs2_, _imm2_
+:th.srb rd,rs1,rs2,op2526 is op0006=0xb & funct3=0x5 & funct5=0x0 & rd & rs1 & rs2 & op2526
+{
+	# addr := rs1 + (rs2 << imm2)
+	# mem[addr] := rd
+	local ea:$(XLEN) = rs1 + (rs2 << op2526);
+	*[ram]:1 ea = rd:1;
+}
+
+# th.srh _rd_, _rs1_, _rs2_, _imm2_
+:th.srh rd,rs1,rs2,op2526 is op0006=0xb & funct3=0x5 & funct5=0x4 & rd & rs1 & rs2 & op2526
+{
+	# addr := rs1 + (rs2 << imm2)
+	# mem[addr+1:addr] := rd
+	local ea:$(XLEN) = rs1 + (rs2 << op2526);
+	*[ram]:2 ea = rd:2;
+}
+
+# th.srw _rd_, _rs1_, _rs2_, _imm2_
+:th.srw rd,rs1,rs2,op2526 is op0006=0xb & funct3=0x5 & funct5=0x8 & rd & rs1 & rs2 & op2526
+{
+	# addr := rs1 + (rs2 << imm2)
+	# mem[addr+3:addr] := rd
+	local ea:$(XLEN) = rs1 + (rs2 << op2526);
+	*[ram]:4 ea = rd:4;
+}
+
+:th.shia rd,(rs1),op2024,op2526 is op0006=0xb & funct3=0x5 & funct5=0x7 & rd & rs1 & op2024 & op2526
+{
+	# mem[rs1+1:rs1] := rd
+	# rs1 := rs1 + (sign_extend(imm5) << imm2)
+
+	*[ram]:2 rs1 = rd:2;
+
+	local imm5:$(XLEN) = op2024;
+	local imm2:$(XLEN) = op2526;
+
+	rs1 = rs1 + (sext(imm5[0,4]) << imm2);
+}
+
+# th.swia _rd_, (_rs1_), _imm5_, _imm2_
+:th.swia rd,(rs1),op2024,op2526 is op0006=0xb & funct3=0x5 & funct5=0xb & rd & rs1 & op2024 & op2526
+{
+	# mem[rs1+3:rs1] := rd
+	# rs1 := rs1 + (sign_extend(imm5) << imm2)
+
+	*[ram]:4 rs1 = rd:4;
+
+	local imm5:$(XLEN) = op2024;
+	local imm2:$(XLEN) = op2526;
+
+	rs1 = rs1 + (sext(imm5[0,4]) << imm2);
+}
+
+# th.sbia _rd_, (_rs1_), _imm5_, _imm2_
+:th.sbia rd,(rs1),op2024,op2526 is op0006=0xb & funct3=0x5 & funct5=0x3 & rd & rs1 & op2024 & op2526
+{
+	# mem[rs1] := rd
+	# rs1 := rs1 + (sign_extend(imm5) << imm2)
+
+	*[ram]:1 rs1 = rd:1;
+
+	local imm5:$(XLEN) = op2024;
+	local imm2:$(XLEN) = op2526;
+
+	rs1 = rs1 + (sext(imm5[0,4]) << imm2);
+}
