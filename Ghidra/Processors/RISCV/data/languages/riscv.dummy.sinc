@@ -278,3 +278,8 @@
 {
 }
 
+define pcodeop custom77;
+:custom77 is op0006=0x77
+{
+	custom77();
+}
